@@ -1,0 +1,36 @@
+{
+  "name": "note-agent",
+  "version": "0.1.0",
+  "description": "CLI for NoteAgent — Telegram note bot with Docker-isolated agent runtime",
+  "private": true,
+  "type": "module",
+  "main": "./dist/cli.js",
+  "bin": {
+    "note-agent": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/cli.js",
+    "dev": "npm run build && npm run start"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "telegram",
+    "notes",
+    "cli",
+    "docker",
+    "agent"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^5.8.3"
+  }
+}

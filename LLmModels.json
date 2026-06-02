@@ -1,0 +1,424 @@
+{
+  "version": 1,
+  "description": "LLM providers that issue their own API keys, with suggested models for RAG pipelines vs. reasoning and dialogue.",
+  "usage": {
+    "rag": "Embeddings, retrieval, chunking, summarization for indexing — prefer fast/cheap or dedicated embed models.",
+    "dialogue": "Agent chat, command building, deep analysis, long-post processing — prefer frontier reasoning models."
+  },
+  "providers": [
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "website": "https://platform.openai.com",
+      "apiKeysUrl": "https://platform.openai.com/api-keys",
+      "models": {
+        "rag": {
+          "id": "text-embedding-3-small",
+          "type": "embedding",
+          "notes": "Cost-effective vectors for note/KB indexing; use text-embedding-3-large for higher recall."
+        },
+        "dialogue": {
+          "id": "gpt-4.1",
+          "type": "chat",
+          "notes": "Strong reasoning and tool use; gpt-4o-mini for lighter agent turns."
+        }
+      }
+    },
+    {
+      "id": "anthropic",
+      "name": "Anthropic",
+      "website": "https://console.anthropic.com",
+      "apiKeysUrl": "https://console.anthropic.com/settings/keys",
+      "models": {
+        "rag": {
+          "id": "claude-3-5-haiku-20241022",
+          "type": "chat",
+          "notes": "No first-party embeddings; use for chunk summaries, metadata extraction, and light RAG QA."
+        },
+        "dialogue": {
+          "id": "claude-sonnet-4-20250514",
+          "type": "chat",
+          "notes": "Balanced agent dialog; claude-opus-4-* for hardest analysis tasks."
+        }
+      }
+    },
+    {
+      "id": "google",
+      "name": "Google AI (Gemini)",
+      "website": "https://aistudio.google.com",
+      "apiKeysUrl": "https://aistudio.google.com/apikey",
+      "models": {
+        "rag": {
+          "id": "text-embedding-004",
+          "type": "embedding",
+          "notes": "Gemini embedding model for vector stores; pairs well with ADK on Google stack."
+        },
+        "dialogue": {
+          "id": "gemini-2.5-pro",
+          "type": "chat",
+          "notes": "Long context and strong reasoning; gemini-2.5-flash for faster replies."
+        }
+      }
+    },
+    {
+      "id": "mistral",
+      "name": "Mistral AI",
+      "website": "https://console.mistral.ai",
+      "apiKeysUrl": "https://console.mistral.ai/api-keys",
+      "models": {
+        "rag": {
+          "id": "mistral-embed",
+          "type": "embedding",
+          "notes": "Dedicated embeddings; codestral-embed for code-heavy repos."
+        },
+        "dialogue": {
+          "id": "mistral-large-latest",
+          "type": "chat",
+          "notes": "Flagship chat; mistral-small-latest for cheaper agent loops."
+        }
+      }
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "website": "https://dashboard.cohere.com",
+      "apiKeysUrl": "https://dashboard.cohere.com/api-keys",
+      "models": {
+        "rag": {
+          "id": "embed-v4.0",
+          "type": "embedding",
+          "notes": "RAG-focused vendor; command-r-plus-08-2024 also does retrieval-augmented chat in one model."
+        },
+        "dialogue": {
+          "id": "command-a-03-2025",
+          "type": "chat",
+          "notes": "Enterprise agent and analysis; strong tool and document workflows."
+        }
+      }
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "website": "https://platform.deepseek.com",
+      "apiKeysUrl": "https://platform.deepseek.com/api_keys",
+      "models": {
+        "rag": {
+          "id": "deepseek-chat",
+          "type": "chat",
+          "notes": "Low-cost extraction and summarization over chunks; pair with a separate embed API if needed."
+        },
+        "dialogue": {
+          "id": "deepseek-reasoner",
+          "type": "chat",
+          "notes": "Chain-of-thought style analysis and complex agent planning."
+        }
+      }
+    },
+    {
+      "id": "groq",
+      "name": "Groq",
+      "website": "https://console.groq.com",
+      "apiKeysUrl": "https://console.groq.com/keys",
+      "models": {
+        "rag": {
+          "id": "llama-3.1-8b-instant",
+          "type": "chat",
+          "notes": "Very fast batch summarization; no native embeddings — add OpenAI/Voyage embeds separately."
+        },
+        "dialogue": {
+          "id": "llama-3.3-70b-versatile",
+          "type": "chat",
+          "notes": "Higher-quality open-weight dialog on Groq LPU inference."
+        }
+      }
+    },
+    {
+      "id": "together",
+      "name": "Together AI",
+      "website": "https://api.together.xyz",
+      "apiKeysUrl": "https://api.together.xyz/settings/api-keys",
+      "models": {
+        "rag": {
+          "id": "togethercomputer/m2-bert-80M-8k-retrieval",
+          "type": "embedding",
+          "notes": "Open embedding endpoints; BAAI/bge-large-en-v1.5 also available on Together."
+        },
+        "dialogue": {
+          "id": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+          "type": "chat",
+          "notes": "Hosted open models for agent chat and analysis."
+        }
+      }
+    },
+    {
+      "id": "fireworks",
+      "name": "Fireworks AI",
+      "website": "https://fireworks.ai",
+      "apiKeysUrl": "https://fireworks.ai/account/api-keys",
+      "models": {
+        "rag": {
+          "id": "nomic-ai/nomic-embed-text-v1.5",
+          "type": "embedding",
+          "notes": "Popular open embed model on Fireworks inference."
+        },
+        "dialogue": {
+          "id": "accounts/fireworks/models/llama-v3p3-70b-instruct",
+          "type": "chat",
+          "notes": "Fast hosted Llama for agents; qwen2p5-72b-instruct for multilingual notes."
+        }
+      }
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "website": "https://console.x.ai",
+      "apiKeysUrl": "https://console.x.ai",
+      "models": {
+        "rag": {
+          "id": "grok-2-1212",
+          "type": "chat",
+          "notes": "No separate embed API; use for semantic tagging and chunk summaries."
+        },
+        "dialogue": {
+          "id": "grok-3",
+          "type": "chat",
+          "notes": "Latest Grok for deep reasoning and long-context dialog."
+        }
+      }
+    },
+    {
+      "id": "perplexity",
+      "name": "Perplexity",
+      "website": "https://www.perplexity.ai/settings/api",
+      "apiKeysUrl": "https://www.perplexity.ai/settings/api",
+      "models": {
+        "rag": {
+          "id": "sonar",
+          "type": "chat",
+          "notes": "Search-grounded retrieval and citations; good for live context, not local vector DB alone."
+        },
+        "dialogue": {
+          "id": "sonar-pro",
+          "type": "chat",
+          "notes": "Stronger analysis with web grounding; sonar-reasoning-pro for harder tasks."
+        }
+      }
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "website": "https://openrouter.ai",
+      "apiKeysUrl": "https://openrouter.ai/keys",
+      "models": {
+        "rag": {
+          "id": "openai/text-embedding-3-small",
+          "type": "embedding",
+          "notes": "Single API key routes to many providers; pick any supported embed model by full slug."
+        },
+        "dialogue": {
+          "id": "anthropic/claude-sonnet-4",
+          "type": "chat",
+          "notes": "Unified billing across vendors; swap slug per task without new keys."
+        }
+      }
+    },
+    {
+      "id": "azure-openai",
+      "name": "Azure OpenAI",
+      "website": "https://azure.microsoft.com/products/ai-services/openai-service",
+      "apiKeysUrl": "https://portal.azure.com",
+      "models": {
+        "rag": {
+          "id": "text-embedding-3-small",
+          "type": "embedding",
+          "notes": "Deploy embedding model in Azure AI Foundry; deployment name may differ from model id."
+        },
+        "dialogue": {
+          "id": "gpt-4.1",
+          "type": "chat",
+          "notes": "Enterprise OpenAI models with Azure AD and regional residency."
+        }
+      }
+    },
+    {
+      "id": "aws-bedrock",
+      "name": "AWS Bedrock",
+      "website": "https://aws.amazon.com/bedrock",
+      "apiKeysUrl": "https://console.aws.amazon.com/bedrock",
+      "models": {
+        "rag": {
+          "id": "amazon.titan-embed-text-v2:0",
+          "type": "embedding",
+          "notes": "IAM-based access; cohere.embed-english-v3 also available in Bedrock."
+        },
+        "dialogue": {
+          "id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+          "type": "chat",
+          "notes": "Multi-vendor catalog under one AWS account; model IDs are region-specific."
+        }
+      }
+    },
+    {
+      "id": "voyage",
+      "name": "Voyage AI",
+      "website": "https://www.voyageai.com",
+      "apiKeysUrl": "https://dash.voyageai.com/api-keys",
+      "models": {
+        "rag": {
+          "id": "voyage-3",
+          "type": "embedding",
+          "notes": "Specialist embeddings; often paired with Anthropic/OpenAI for chat."
+        },
+        "dialogue": {
+          "id": null,
+          "type": "none",
+          "notes": "Embeddings-only provider — use Anthropic, OpenAI, or Google for agent dialogue."
+        }
+      }
+    },
+    {
+      "id": "jina",
+      "name": "Jina AI",
+      "website": "https://jina.ai",
+      "apiKeysUrl": "https://jina.ai/api-dashboard",
+      "models": {
+        "rag": {
+          "id": "jina-embeddings-v3",
+          "type": "embedding",
+          "notes": "Multilingual and long-document embeddings."
+        },
+        "dialogue": {
+          "id": "jina-deepsearch-v1",
+          "type": "chat",
+          "notes": "Search/RAG agent API; for pure chat prefer a full LLM provider."
+        }
+      }
+    },
+    {
+      "id": "ai21",
+      "name": "AI21 Labs",
+      "website": "https://studio.ai21.com",
+      "apiKeysUrl": "https://studio.ai21.com/account/api-keys",
+      "models": {
+        "rag": {
+          "id": "jamba-1.5-mini",
+          "type": "chat",
+          "notes": "Long-context summarization over note corpora."
+        },
+        "dialogue": {
+          "id": "jamba-1.5-large",
+          "type": "chat",
+          "notes": "Stronger analysis and structured extraction."
+        }
+      }
+    },
+    {
+      "id": "alibaba-dashscope",
+      "name": "Alibaba Cloud (DashScope / Qwen)",
+      "website": "https://dashscope.aliyun.com",
+      "apiKeysUrl": "https://dashscope.console.aliyun.com/apiKey",
+      "models": {
+        "rag": {
+          "id": "text-embedding-v3",
+          "type": "embedding",
+          "notes": "Qwen embedding family for vector indexes."
+        },
+        "dialogue": {
+          "id": "qwen-max",
+          "type": "chat",
+          "notes": "Flagship Qwen for agents; qwen-plus for lower cost."
+        }
+      }
+    },
+    {
+      "id": "zhipu",
+      "name": "Zhipu AI (GLM)",
+      "website": "https://open.bigmodel.cn",
+      "apiKeysUrl": "https://open.bigmodel.cn/usercenter/apikeys",
+      "models": {
+        "rag": {
+          "id": "embedding-3",
+          "type": "embedding",
+          "notes": "GLM embedding API for knowledge bases."
+        },
+        "dialogue": {
+          "id": "glm-4-plus",
+          "type": "chat",
+          "notes": "Top-tier GLM for reasoning; glm-4-flash for speed."
+        }
+      }
+    },
+    {
+      "id": "huggingface",
+      "name": "Hugging Face Inference Providers",
+      "website": "https://huggingface.co/settings/tokens",
+      "apiKeysUrl": "https://huggingface.co/settings/tokens",
+      "models": {
+        "rag": {
+          "id": "sentence-transformers/all-MiniLM-L6-v2",
+          "type": "embedding",
+          "notes": "Serverless or dedicated inference; model id depends on chosen provider route."
+        },
+        "dialogue": {
+          "id": "meta-llama/Llama-3.3-70B-Instruct",
+          "type": "chat",
+          "notes": "Access many open models with one HF token and provider billing."
+        }
+      }
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate",
+      "website": "https://replicate.com",
+      "apiKeysUrl": "https://replicate.com/account/api-tokens",
+      "models": {
+        "rag": {
+          "id": "andreasjansson/clap-embeddings",
+          "type": "embedding",
+          "notes": "Example embed deployment; browse replicate.com/collections/embeddings for current versions."
+        },
+        "dialogue": {
+          "id": "meta/meta-llama-3-70b-instruct",
+          "type": "chat",
+          "notes": "Pay-per-run open models; pin version hashes for production."
+        }
+      }
+    },
+    {
+      "id": "novita",
+      "name": "Novita AI",
+      "website": "https://novita.ai",
+      "apiKeysUrl": "https://novita.ai/settings/key-management",
+      "models": {
+        "rag": {
+          "id": "baai/bge-m3",
+          "type": "embedding",
+          "notes": "Multilingual dense retrieval."
+        },
+        "dialogue": {
+          "id": "qwen/qwen2.5-72b-instruct",
+          "type": "chat",
+          "notes": "Hosted open models with competitive pricing."
+        }
+      }
+    },
+    {
+      "id": "siliconflow",
+      "name": "SiliconFlow",
+      "website": "https://cloud.siliconflow.cn",
+      "apiKeysUrl": "https://cloud.siliconflow.cn/account/ak",
+      "models": {
+        "rag": {
+          "id": "BAAI/bge-large-zh-v1.5",
+          "type": "embedding",
+          "notes": "Strong Chinese/English retrieval; many open embed endpoints."
+        },
+        "dialogue": {
+          "id": "deepseek-ai/DeepSeek-V3",
+          "type": "chat",
+          "notes": "Aggregates DeepSeek, Qwen, and other open weights behind one key."
+        }
+      }
+    }
+  ]
+}

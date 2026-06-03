@@ -14,7 +14,7 @@ Telegram-based personal note bot with a Docker-isolated runtime, Git-backed note
 
 ## Planned architecture
 
-The diagram below reflects the component split described in [PRODUCT_SPEC.md](PRODUCT_SPEC.md). Command routing, ADK tools, and user slash commands are defined there and in `Requirements/Main.md`.
+The diagram below reflects the component split described in [PRODUCT_SPEC.md](PRODUCT_SPEC.md) and [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
 
 ```mermaid
 flowchart TB
@@ -76,17 +76,6 @@ flowchart TB
 | **Git sync / push** | Pull on start; commit + push on every `UserRepo/` change; push on gateway SIGTERM (container only) |
 | **RAG** | Host-mounted chunk index + mtime registry; full `UserRepo/` except `config/`; daily = log-line chunks; other paths = multi-chunk (see spec); hybrid search for retrieval |
 
-### Handler modes
-
-```mermaid
-stateDiagram-v2
-  [*] --> NoteCapture: default
-  NoteCapture --> AgentDialog: slash command (/agent, user /cmd, …)
-  AgentDialog --> NoteCapture: 3 min timeout OR command goal done
-  NoteCapture --> NoteCapture: plain message → daily line
-  AgentDialog --> AgentDialog: dialog message (no daily write)
-```
-
 ## Repository layout (inside user repo)
 
 ```
@@ -132,24 +121,64 @@ User-defined commands are added over time via the agent and registered in the ha
 - **Deploy:** Docker (one container per configured instance)
 - **Messenger:** Telegram Bot API
 
-## Requirements
+## Install and run
 
-Full product specification (English, tracked in git): [PRODUCT_SPEC.md](PRODUCT_SPEC.md).
+### Prerequisites
 
-Editable source (local, often gitignored): `Requirements/Main.md`.
+- [Node.js](https://nodejs.org/) **18+**
+- [Docker](https://www.docker.com/) (Desktop on Windows/macOS, Engine on Linux) — running before you add or start instances
 
-## Development
+### Setup (once per machine)
+
+From the project directory:
 
 ```bash
 npm install
-npm run build          # CLI + container runtime (dist/cli, dist/runtime, dist/messenger)
-npm run typecheck      # full src/
-npm start              # host CLI
-npm run start:gateway  # gateway entry (container)
+npm run build
+```
+
+This builds the host CLI (`dist/cli/`) and the container runtime (`dist/runtime/`, `dist/messenger/`).
+
+### Run the bot (normal use)
+
+```bash
+npm start
+```
+
+The CLI menu lets you:
+
+1. **Add instance** — wizard: container name, Telegram bot token, LLM provider + API key, your Telegram user id, Git PAT, repo URL. Data is stored in `~/.note-agent/instances.json` (secrets) and host folders under `~/.note-agent/instances/<containerName>/`.
+2. **Start** or **Restart** an instance — CLI builds the Docker image if needed, creates/starts the container. Inside the container, **gateway** and **agent worker** start automatically (you do not run them separately).
+3. **Delete instance** — removes the container and registry entry; optional wipe of host `UserRepo/` and `rag/`.
+
+Send messages to your bot on Telegram. By default they are saved to `note_telegram_bot/daily/` and pushed to Git.
+
+### After you change the code
+
+```bash
+npm run build
+docker build -t note-agent-runtime:latest .
+```
+
+Then in the CLI: **Restart** the instance (or **Start** if stopped) so the container is recreated with the new image.
+
+### Optional: local debugging without Docker
+
+Only for hacking on gateway/worker — not for daily use. You need the same env vars the container sets (`NOTE_AGENT_*`, `TELEGRAM_BOT_TOKEN`, `GIT_PAT`, `LLM_API_KEY` on the worker). Run **both** in separate terminals:
+
+```bash
+npm run start:gateway
 npm run start:agent-worker
 ```
 
-Host vs gateway vs worker boundaries: [docs/runtime-boundaries.md](docs/runtime-boundaries.md).
+Process boundaries: [docs/runtime-boundaries.md](docs/runtime-boundaries.md).
+
+### Development checks
+
+```bash
+npm run typecheck
+npm test
+```
 
 ## License
 

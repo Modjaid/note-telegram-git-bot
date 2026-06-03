@@ -97,7 +97,7 @@ export class GitWriteService {
     return { pushed: true, message: "Pushed to remote." };
   }
 
-  /** Push any unpushed commits (pre-stop / CLI restart). */
+  /** Push any unpushed commits (gateway shutdown). */
   async pushIfNeeded(): Promise<GitWriteResult> {
     const status = await runGit(this.#repoDir, ["status", "--porcelain"]);
     if (status.code !== 0) {

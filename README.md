@@ -8,7 +8,7 @@ Telegram-based personal note bot with a Docker-isolated runtime, Git-backed note
 
 1. **CLI** — On start, choose an existing Docker container or create a new one (container name, Telegram bot token, LLM API key, allowed Telegram user id, Git PAT, repo URL). Persist settings in a local secret store. List running containers; add or restart instances.
 2. **Isolated runtime** — One Docker container per user instance runs **two processes**: a **gateway** (Telegram + handler + fast note/Git path) and an **ADK agent worker** (slash dialogs, long posts, command authoring). Gateway talks to the worker over in-container IPC.
-3. **Git sync** — After container start, clone/sync the user repo via PAT into host-mounted `UserRepo/`; ensure `note_telegram_bot/` exists. On each write: commit + push to the instance branch (e.g. `node_telegram_bot`). Before CLI restart: push pending commits.
+3. **Git sync** — Inside the container only: clone/sync into host-mounted `UserRepo/`, scaffold `note_telegram_bot/`, commit + push on each write and on gateway shutdown. The host CLI never runs `git`.
 4. **Default behavior** — Most Telegram messages are appended to daily note files; slash commands open timed agent dialogs (3-minute window) without writing to daily notes until the dialog ends.
 5. **RAG** — Per-instance vector index on the host (`rag/`); reconciled with `UserRepo/` after local writes and after git pull.
 
@@ -73,7 +73,7 @@ flowchart TB
 | **Gateway** | Telegram + handler: default note capture, Git push triggers, RAG reconcile hooks; forwards agent work to worker |
 | **Agent worker (ADK)** | Slash dialogs, `/agent`, long posts, indexed files, user commands/tasks, KB tools |
 | **Daily Note Writer** | Append lines to `daily/DD/MM/YYYY` (day boundary 06:00 local) |
-| **Git sync / push** | Pull on start; commit + push on every `UserRepo/` change; push before container stop |
+| **Git sync / push** | Pull on start; commit + push on every `UserRepo/` change; push on gateway SIGTERM (container only) |
 | **RAG** | Host-mounted index; reconcile mtime with `UserRepo/` after writes and pull |
 
 ### Handler modes

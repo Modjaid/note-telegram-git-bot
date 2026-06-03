@@ -9,7 +9,6 @@ import {
   stopInstanceContainer,
   type ContainerRunState,
 } from "./docker.js";
-import { pushUserRepoIfNeeded } from "./git-host.js";
 import { runAddInstanceWizard } from "./add-instance-wizard.js";
 import {
   loadInstancesRegistry,
@@ -76,12 +75,9 @@ async function restartInstanceFlow(
   }
 
   console.log(`\nRestarting "${inst.containerName}"...`);
-  const push = await pushUserRepoIfNeeded(inst.containerName);
-  console.log(push.message);
-  if (push.attempted && !push.pushed) {
-    console.log("Warning: push failed; continuing stop anyway.");
-  }
-
+  console.log(
+    "Stopping container (gateway pushes UserRepo on SIGTERM if needed).",
+  );
   await stopInstanceContainer(inst.containerName);
 
   const session = createPromptSession();
@@ -161,7 +157,7 @@ export async function runMainMenu(): Promise<void> {
             ? "Add instance"
             : "Add instance (Docker required — not available)",
         },
-        { key: "r", label: "Restart instance (git push, then stop)" },
+        { key: "r", label: "Restart instance (stop, then start)" },
         { key: "s", label: "Start stopped instance" },
         { key: "d", label: "Delete instance" },
         { key: "q", label: "Quit" },

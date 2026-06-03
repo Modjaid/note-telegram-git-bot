@@ -23,7 +23,7 @@ Each added repository is a **separate isolated service in a Docker container**. 
 
 - **Container start:** PAT → clone into `UserRepo/`; if `.git` already exists — pull. After a successful pull — **re-index** files that were added, changed, or removed relative to the RAG registry (see below).
 - **Every write or change** in `UserRepo/` (daily, indexed, config, command results, etc.): immediately **commit + push** to this instance’s configured **repository branch** (e.g. `node_telegram_bot`). Deferred push by timer is not used.
-- **Restart via CLI:** before stopping the container — push any remaining unpushed commits (if any), then stop the container.
+- **Restart via CLI:** stop the container (gateway pushes unpushed `UserRepo` commits on SIGTERM), then optionally start again. The host CLI does not run `git`.
 
 ### RAG (per instance)
 
@@ -40,7 +40,7 @@ Each added repository is a **separate isolated service in a Docker container**. 
 - On program start: CLI reads a secret file with the list of previously added instances.
 - Show which containers are running and which are not.
 - Offer to restart an instance or add a new repository.
-  - Restart: **must** push changes to git, **then** stop the container.
+  - Restart: stop the container (Git push on shutdown is handled inside the container), then optionally start again.
 - Offer to add a new repository and create an isolated agent system in a Docker container for it; everything is saved to the secret file for recovery.
   - Choose a container name.
   - Telegram bot token where user messages arrive.

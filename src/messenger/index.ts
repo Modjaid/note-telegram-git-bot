@@ -28,3 +28,33 @@ export {
   type TelegramInlineKeyboardMarkup,
   type TelegramSendMessageParams,
 } from "./telegram.js";
+
+export {
+  fromTelegramUpdate,
+  parseTelegramBotCommand,
+  type ParsedTelegramCommand,
+  type TelegramCallbackQuery,
+  type TelegramChat,
+  type TelegramMessage,
+  type TelegramMessageEntity,
+  type TelegramUpdate,
+  type TelegramUser,
+} from "./telegram-inbound.js";
+
+export {
+  TelegramApiError,
+  TelegramBotApi,
+  type TelegramApiOptions,
+  type TelegramGetUpdatesResult,
+} from "./telegram-api.js";
+
+export { TelegramLongPoller, type TelegramLongPollerOptions } from "./telegram-poller.js";
+
+export {
+  BUILTIN_SLASH_COMMANDS,
+  CommandRegistry,
+  parseUserCommandFile,
+  type BuiltinSlashCommand,
+  type CommandRegistrySnapshot,
+  type UserCommandDefinition,
+} from "./command-registry.js";

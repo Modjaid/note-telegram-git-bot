@@ -102,7 +102,7 @@ export async function runAddInstanceWizard(
     }
     await startInstanceContainer(record, packageRoot);
     console.log(
-      "\nInstance is up. Telegram handler and daily notes follow in Phase 3.",
+      "\nInstance is up. Send Telegram messages to the bot; daily note files follow in Phase 4.",
     );
     return record;
   } catch (error) {

@@ -39,6 +39,19 @@ export class AgentIpcClient {
     return response;
   }
 
+  async longPost(
+    request: Extract<AgentIpcRequest, { type: "longPost" }>,
+  ): Promise<Extract<AgentIpcResponse, { type: "longPost" }>> {
+    const response = await this.#post(request);
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    if (response.type !== "longPost") {
+      throw new Error("Unexpected longPost response");
+    }
+    return response;
+  }
+
   async #post(body: AgentIpcRequest): Promise<AgentIpcResponse> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);

@@ -17,6 +17,7 @@
     "build:cli": "tsc -p tsconfig.cli.json",
     "build:runtime": "tsc -p tsconfig.runtime.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test dist/note-log/note-log.test.js",
     "prepublishOnly": "npm run build",
     "start": "node dist/cli/cli.js",
     "start:gateway": "node dist/runtime/gateway/main.js",
@@ -37,5 +38,9 @@
   "devDependencies": {
     "@types/node": "^25.9.1",
     "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@google/adk": "^1.1.0",
+    "zod": "^4.4.3"
   }
 }

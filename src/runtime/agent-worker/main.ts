@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { loadRuntimeEnv } from "../env.js";
 import { holdProcessOpen } from "../keep-alive.js";
 import { startAgentIpcServer } from "../ipc/server.js";
+import { createLongPostIpcHandler } from "./ipc-handlers.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -37,10 +38,11 @@ export async function runAgentWorker(): Promise<void> {
   startAgentIpcServer({
     port: env.agentWorkerPort,
     workerVersion: version,
+    onLongPost: createLongPostIpcHandler(env),
   });
 
   console.log(
-    `Agent worker ready. IPC on 127.0.0.1:${env.agentWorkerPort} (ADK in Phase 5/7).`,
+    `Agent worker ready. IPC on 127.0.0.1:${env.agentWorkerPort} (long-post + ADK dialog).`,
   );
   holdProcessOpen();
 }

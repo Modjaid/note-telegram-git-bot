@@ -7,12 +7,26 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { GitWriteService } from "../../git/write-service.js";
-import { CONTAINER_RAG, CONTAINER_USER_REPO } from "../../paths/index.js";
+import { MessengerHandler } from "../../messenger/handler.js";
+import { CommandRegistry } from "../../messenger/command-registry.js";
+import { TelegramBotApi } from "../../messenger/telegram-api.js";
+import { TelegramLongPoller } from "../../messenger/telegram-poller.js";
+import {
+  CONTAINER_RAG,
+  CONTAINER_USER_REPO,
+  ntbCommandsDir,
+} from "../../paths/index.js";
+import { NoteCaptureService } from "../../note-log/capture.js";
+import { IpcLongPostClient } from "./long-post-client.js";
 import { runContainerBootstrap } from "../bootstrap.js";
 import { loadRuntimeEnv } from "../env.js";
 import { startGatewayHealthServer, type HealthSnapshot } from "../health-server.js";
 import { AgentIpcClient } from "../ipc/client.js";
 import { holdProcessOpen } from "../keep-alive.js";
+import {
+  GatewayAgentBridge,
+  type HandlerMode,
+} from "./agent-bridge.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -31,6 +45,10 @@ export async function runGateway(): Promise<void> {
 
   const env = loadRuntimeEnv();
   const ipc = new AgentIpcClient({ port: env.agentWorkerPort });
+
+  let handlerMode: HandlerMode = "NoteCapture";
+  let telegramPolling = false;
+  let telegramLastError: string | undefined;
 
   let health: HealthSnapshot = {
     status: "starting",
@@ -74,6 +92,53 @@ export async function runGateway(): Promise<void> {
     console.warn(`Agent worker not reachable: ${workerError ?? "unknown"}`);
   }
 
+  const noteCapture = new NoteCaptureService({
+    userRepoDir: env.userRepoDir,
+    gitWriter,
+    longPostClient: workerReachable ? new IpcLongPostClient(ipc) : undefined,
+  });
+  await noteCapture.ensureRegionLoaded();
+
+  const commandRegistry = new CommandRegistry(ntbCommandsDir(env.userRepoDir));
+  await commandRegistry.reload();
+
+  const telegramApi = new TelegramBotApi({ botToken: env.telegramBotToken });
+
+  const agentBridge = new GatewayAgentBridge({
+    ipc,
+    commandRegistry,
+    noteCapture,
+    onModeChange: (mode) => {
+      handlerMode = mode;
+    },
+    onDialogTimeout: async (message) => {
+      await telegramApi.sendOutbound(message);
+    },
+  });
+
+  const handler = new MessengerHandler({
+    allowedUserIds: [env.allowedTelegramUserId],
+    agent: agentBridge,
+  });
+
+  const poller = new TelegramLongPoller({
+    api: telegramApi,
+    handler,
+    deliver: (message) => telegramApi.sendOutbound(message),
+    onPollError: (error) => {
+      telegramLastError = error.message;
+      console.warn(`Telegram poll error: ${error.message}`);
+      health = {
+        ...health,
+        telegram: {
+          polling: telegramPolling,
+          handlerMode,
+          lastError: telegramLastError,
+        },
+      };
+    },
+  });
+
   health = {
     status: workerReachable ? "ok" : "degraded",
     gateway: true,
@@ -84,10 +149,27 @@ export async function runGateway(): Promise<void> {
       version: workerVersion,
       error: workerError,
     },
+    telegram: {
+      polling: false,
+      handlerMode,
+    },
   };
 
+  await poller.start();
+  telegramPolling = true;
+  health = {
+    ...health,
+    telegram: { polling: true, handlerMode },
+  };
+  console.log("Telegram long polling started.");
+  console.log(
+    `Gateway ready. Handler mode: ${handlerMode}. Health: GET /health`,
+  );
+
   const shutdown = async (signal: string) => {
-    console.log(`Gateway received ${signal}; pushing UserRepo if needed...`);
+    console.log(`Gateway received ${signal}; stopping Telegram poll...`);
+    await poller.stop();
+    console.log("Pushing UserRepo if needed...");
     const result = await gitWriter.pushIfNeeded();
     console.log(result.message);
     process.exit(0);
@@ -99,9 +181,6 @@ export async function runGateway(): Promise<void> {
     void shutdown("SIGINT");
   });
 
-  console.log(
-    "Gateway ready (Telegram + handler wiring in Phase 3). Health: GET /health",
-  );
   holdProcessOpen();
 }
 

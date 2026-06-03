@@ -6,6 +6,11 @@ export interface HealthSnapshot {
   bootstrapComplete: boolean;
   gitMessage?: string;
   worker?: { reachable: boolean; version?: string; error?: string };
+  telegram?: {
+    polling: boolean;
+    handlerMode?: string;
+    lastError?: string;
+  };
 }
 
 export function startGatewayHealthServer(

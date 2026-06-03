@@ -8,6 +8,9 @@ export interface AgentIpcServerOptions {
   onDialog?: (
     body: Extract<AgentIpcRequest, { type: "dialog" }>,
   ) => Promise<AgentIpcResponse>;
+  onLongPost?: (
+    body: Extract<AgentIpcRequest, { type: "longPost" }>,
+  ) => Promise<AgentIpcResponse>;
 }
 
 function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -103,10 +106,17 @@ async function handleRequest(
         {
           chatId: request.message.chatId,
           text:
-            "Agent worker is running. ADK dialog handling will be added in Phase 5/7.",
+            "Agent worker is running. ADK dialog handling will be added in Phase 7.",
         },
       ],
     };
+  }
+
+  if (request.type === "longPost") {
+    if (options.onLongPost) {
+      return options.onLongPost(request);
+    }
+    return { ok: false, error: "Long-post handler not configured." };
   }
 
   return { ok: false, error: `Unknown request type` };

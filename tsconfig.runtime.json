@@ -5,7 +5,9 @@
     "src/messenger/**/*",
     "src/config/**/*",
     "src/paths/**/*",
-    "src/git/**/*"
+    "src/git/**/*",
+    "src/note-log/**/*",
+    "src/rag/**/*"
   ],
   "exclude": ["node_modules", "dist"]
 }

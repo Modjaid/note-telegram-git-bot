@@ -10,6 +10,10 @@ export type AgentIpcRequest =
       type: "dialog";
       sessionId?: string;
       message: InboundMessengerMessage;
+    }
+  | {
+      type: "longPost";
+      text: string;
     };
 
 export type AgentIpcResponse =
@@ -19,6 +23,15 @@ export type AgentIpcResponse =
       type: "dialog";
       sessionId?: string;
       replies: OutboundMessengerMessage[] | null;
+    }
+  | {
+      ok: true;
+      type: "longPost";
+      fileName: string;
+      shortDescription: string;
+      indexedRelativePath: string;
+      tags: string[];
+      wikilinks: string[];
     }
   | { ok: false; error: string };
 

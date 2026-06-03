@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "src/runtime/**/*",
+    "src/messenger/**/*",
+    "src/config/**/*",
+    "src/paths/**/*",
+    "src/git/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

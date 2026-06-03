@@ -4,18 +4,23 @@
   "description": "CLI for NoteAgent — Telegram note bot with Docker-isolated agent runtime",
   "private": true,
   "type": "module",
-  "main": "./dist/cli.js",
+  "main": "./dist/cli/cli.js",
   "bin": {
-    "note-agent": "./dist/cli.js"
+    "note-agent": "./dist/cli/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "LLmModels.json"
   ],
   "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
+    "build": "npm run build:cli && npm run build:runtime",
+    "build:cli": "tsc -p tsconfig.cli.json",
+    "build:runtime": "tsc -p tsconfig.runtime.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepublishOnly": "npm run build",
-    "start": "node dist/cli.js",
+    "start": "node dist/cli/cli.js",
+    "start:gateway": "node dist/runtime/gateway/main.js",
+    "start:agent-worker": "node dist/runtime/agent-worker/main.js",
     "dev": "npm run build && npm run start"
   },
   "engines": {

@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "src/cli/**/*",
+    "src/config/**/*",
+    "src/paths/**/*",
+    "src/git/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

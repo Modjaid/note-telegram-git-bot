@@ -62,11 +62,12 @@ Each added repository is a **separate isolated service in a Docker container**. 
 ```text
 UserRepo/                          # user repository with all their files
   note_telegram_bot/               # bot folder
-    daily/                         # raw daily entries
-    indexed/                       # full processed notes
+    daily/                         # raw daily entries (DD_MMM_YYYY.md, e.g. 02_Jun_2026.md)
+    indexed/                       # long posts, /<CommandName> outputs, wikilinked notes
     config/                        # agent settings, tasks, commands
 ```
 
+- **Git branch** (e.g. `node_telegram_bot`): create and checkout if missing after clone/pull; all bot writes commit and push to this branch.
 - Start: Telegram Adapter, Message Handler, local RAG index database, and agent (handler talks to the agent; the bot does not reply to other users).
 
 ### Message handling (default)
@@ -104,20 +105,20 @@ UserRepo/                          # user repository with all their files
 #### `/<CommandName>` (user command)
 
 - Loaded from `UserRepo/note_telegram_bot/config/commands/CommandName.md`.
-- **Create md file** `UserRepo/indexed/note_telegram_bot/indexed/<topic_of_sum>_DD_MMM_YYYY.md`, where `<topic_of_sum>` comes from the final `<Summary>`, date is the file creation day. File structure:
+- **Create md file** `UserRepo/note_telegram_bot/indexed/<topic_of_sum>_DD_MMM_YYYY.md`, where `<topic_of_sum>` comes from the final `<Summary>`, date is the file creation day. File structure:
   - `<commandId>` — `CommandId:` — command id to find prior runs
   - `<Period>` — in the command may be `last_7_logical_days`; in the file — `from date to date` of the actual analysis
   - `<Summary>` — LLM result from `<Prompt>`, `<AILogs>` for the period, same-command files for the period, dynamics of changes, focus, and priorities
   - `<AILogs>` — array of individually processed log notes (unlike `<NoteLog>`); top to bottom by time; format:
     - `"YYYY:MMM:DD:HH:mm:<index> <type> <Note>"` — `<Note>` already processed by LLM for aggregation in `<Summary>` per `<Prompt>`
 - **Note analysis algorithm:**
-  - Script finds all files in `indexed/` whose header contains `commandID: <commandID>`.
+  - Script finds all files in `note_telegram_bot/indexed/` whose header contains `commandID: <commandID>`.
   - If id matches the invoked command — read `<Period>` in the file (analysis date range).
     - If part of `<Period>` overlaps the current period:
       - If `<Prompt>` needs dynamics from past analyses — in the new file’s `<AILogs>` store the found file’s `<Summary>` with log type `"Summary from date to date"`.
       - If `<Prompt>` is period-only analysis — take logs from `<AILogs>` that fall in the command period and write to own `<AILogs>`.
   - Loop daily files in the remaining time range (not covered by indexed); files may be absent.
-    - For each daily, LLM picks logs from `Daily/DD_MMM-YYYY.md` related to `<Prompt>`; returns processed logs with adapted `<Note>` for `<Summary>` in format `<YYYY><MM><DD><HH><MM><Index> <type> <Note>`.
+    - For each daily, LLM picks logs from `note_telegram_bot/daily/DD_MMM_YYYY.md` related to `<Prompt>`; returns processed logs with adapted `<Note>` for `<Summary>` in format `YYYY:MMM:DD:HH:mm:<Index> <type> <Note>`.
     - Script checks `<type>` of processed logs; for `"Post <fileName>"` — refine `<fileName>.md` via LLM for `<Summary>` per `<Prompt>`; rewritten logs saved in `<logIds>`.
   - With full `<AILogs>` array, run final processing and build `<Summary>`.
 

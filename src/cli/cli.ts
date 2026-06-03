@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { main } from "./index.js";
+import { main } from "./main.js";
 
 main().catch((error: unknown) => {
   const message = error instanceof Error ? error.message : String(error);

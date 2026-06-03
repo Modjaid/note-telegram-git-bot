@@ -3,7 +3,16 @@
   "description": "LLM providers that issue their own API keys, with suggested models for RAG pipelines vs. reasoning and dialogue.",
   "usage": {
     "rag": "Embeddings, retrieval, chunking, summarization for indexing — prefer fast/cheap or dedicated embed models.",
-    "dialogue": "Agent chat, command building, deep analysis, long-post processing — prefer frontier reasoning models."
+    "dialogue": "Agent chat, command building, deep analysis, long-post processing — prefer frontier reasoning models.",
+    "local": "Providers with local=true use connection.defaultBaseUrl (or connection.baseUrlEnv). Model ids are defaults only — at setup, user must pick names that exist on their Ollama/LM Studio server. API keys optional when apiKeyRequired is false.",
+    "singleKey": "One LLM API key per user instance. If models.rag.id or models.dialogue.id is null, the defined id is used for both RAG and dialogue."
+  },
+  "providerFields": {
+    "local": "When true, provider is user-hosted; see connection.",
+    "connection": "Local only: defaultBaseUrl, baseUrlEnv (override), protocol (ollama | openai_compatible).",
+    "apiKeyRequired": "When false, CLI may skip API key; runtime uses base URL only.",
+    "models.rag.id": "Embedding or chat model id sent to the provider API.",
+    "models.dialogue.id": "Chat model id for ADK agent turns."
   },
   "providers": [
     {
@@ -417,6 +426,58 @@
           "id": "deepseek-ai/DeepSeek-V3",
           "type": "chat",
           "notes": "Aggregates DeepSeek, Qwen, and other open weights behind one key."
+        }
+      }
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama (local)",
+      "website": "https://ollama.com",
+      "apiKeysUrl": null,
+      "local": true,
+      "apiKeyRequired": false,
+      "connection": {
+        "protocol": "ollama",
+        "defaultBaseUrl": "http://host.docker.internal:11434",
+        "baseUrlEnv": "NOTE_AGENT_OLLAMA_BASE_URL",
+        "notes": "Pull models on the host: ollama pull nomic-embed-text && ollama pull llama3.2. From bare metal use http://127.0.0.1:11434."
+      },
+      "models": {
+        "rag": {
+          "id": "nomic-embed-text",
+          "type": "embedding",
+          "notes": "Default embed model; override id to any embedding model installed in Ollama."
+        },
+        "dialogue": {
+          "id": "llama3.2",
+          "type": "chat",
+          "notes": "Default chat model; override id to match ollama list (e.g. qwen2.5, mistral)."
+        }
+      }
+    },
+    {
+      "id": "lmstudio",
+      "name": "LM Studio (local, OpenAI-compatible)",
+      "website": "https://lmstudio.ai",
+      "apiKeysUrl": null,
+      "local": true,
+      "apiKeyRequired": false,
+      "connection": {
+        "protocol": "openai_compatible",
+        "defaultBaseUrl": "http://host.docker.internal:1234/v1",
+        "baseUrlEnv": "NOTE_AGENT_LMSTUDIO_BASE_URL",
+        "notes": "Enable the local server in LM Studio; load embed + chat models. Path /v1 matches OpenAI client SDKs."
+      },
+      "models": {
+        "rag": {
+          "id": "text-embedding-nomic-embed-text-v1.5",
+          "type": "embedding",
+          "notes": "Use the exact model id shown in LM Studio for the loaded embedding model."
+        },
+        "dialogue": {
+          "id": "local-model",
+          "type": "chat",
+          "notes": "Replace with the loaded chat model id from LM Studio (often the GGUF filename or server label)."
         }
       }
     }

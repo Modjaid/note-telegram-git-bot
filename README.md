@@ -2,8 +2,6 @@
 
 Telegram-based personal note bot with a Docker-isolated runtime, Git-backed note storage, and an LLM agent (Google ADK) for indexing, long posts, and custom slash commands.
 
-**Status:** Phase 0–1 done — interactive CLI (add/list/restart/delete instances, LLM picker, Docker run with gateway+worker). In-container Git clone, Telegram, daily notes, and ADK: [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) Phase 2+.
-
 ## What it does (planned)
 
 1. **CLI** — On start, choose an existing Docker container or create a new one (container name, Telegram bot token, LLM API key, allowed Telegram user id, Git PAT, repo URL). Persist settings in a local secret store. List running containers; add or restart instances.

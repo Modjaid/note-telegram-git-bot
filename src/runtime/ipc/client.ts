@@ -1,5 +1,9 @@
 import type { AgentIpcRequest, AgentIpcResponse } from "./types.js";
-import { DEFAULT_IPC_TIMEOUT_MS } from "./types.js";
+import {
+  DEFAULT_IPC_TIMEOUT_MS,
+  RAG_RECONCILE_ALL_TIMEOUT_MS,
+} from "./types.js";
+import type { RagReconcileStats } from "../../rag/types.js";
 
 export interface AgentIpcClientOptions {
   port: number;
@@ -52,9 +56,62 @@ export class AgentIpcClient {
     return response;
   }
 
-  async #post(body: AgentIpcRequest): Promise<AgentIpcResponse> {
+  async ragReconcileAll(): Promise<RagReconcileStats> {
+    const response = await this.#post(
+      { type: "ragReconcileAll" },
+      RAG_RECONCILE_ALL_TIMEOUT_MS,
+    );
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    if (response.type !== "ragReconcile") {
+      throw new Error("Unexpected ragReconcile response");
+    }
+    return response.stats;
+  }
+
+  async ragReconcilePaths(paths: string[]): Promise<RagReconcileStats> {
+    const response = await this.#post({ type: "ragReconcilePaths", paths });
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    if (response.type !== "ragReconcile") {
+      throw new Error("Unexpected ragReconcile response");
+    }
+    return response.stats;
+  }
+
+  async ragIndexFile(relativePath: string): Promise<RagReconcileStats> {
+    const response = await this.#post({
+      type: "ragIndexFile",
+      relativePath,
+    });
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    if (response.type !== "ragReconcile") {
+      throw new Error("Unexpected ragReconcile response");
+    }
+    return response.stats;
+  }
+
+  async ragFindSimilar(query: string, limit = 5): Promise<string[]> {
+    const response = await this.#post({ type: "ragFindSimilar", query, limit });
+    if (!response.ok) {
+      throw new Error(response.error);
+    }
+    if (response.type !== "ragFindSimilar") {
+      throw new Error("Unexpected ragFindSimilar response");
+    }
+    return response.files;
+  }
+
+  async #post(
+    body: AgentIpcRequest,
+    timeoutMs = this.#timeoutMs,
+  ): Promise<AgentIpcResponse> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(`${this.#baseUrl}/v1/agent`, {
         method: "POST",
@@ -72,7 +129,7 @@ export class AgentIpcClient {
       return json;
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
-        return { ok: false, error: `IPC timeout after ${this.#timeoutMs}ms` };
+        return { ok: false, error: `IPC timeout after ${timeoutMs}ms` };
       }
       const message =
         error instanceof Error ? error.message : String(error);

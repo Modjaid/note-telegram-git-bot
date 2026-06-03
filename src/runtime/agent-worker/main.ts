@@ -10,6 +10,12 @@ import { loadRuntimeEnv } from "../env.js";
 import { holdProcessOpen } from "../keep-alive.js";
 import { startAgentIpcServer } from "../ipc/server.js";
 import { createLongPostIpcHandler } from "./ipc-handlers.js";
+import {
+  createRagFindSimilarHandler,
+  createRagIndexFileHandler,
+  createRagReconcileAllHandler,
+  createRagReconcilePathsHandler,
+} from "./rag-ipc-handlers.js";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
@@ -39,10 +45,14 @@ export async function runAgentWorker(): Promise<void> {
     port: env.agentWorkerPort,
     workerVersion: version,
     onLongPost: createLongPostIpcHandler(env),
+    onRagReconcileAll: createRagReconcileAllHandler(env),
+    onRagReconcilePaths: createRagReconcilePathsHandler(env),
+    onRagIndexFile: createRagIndexFileHandler(env),
+    onRagFindSimilar: createRagFindSimilarHandler(env),
   });
 
   console.log(
-    `Agent worker ready. IPC on 127.0.0.1:${env.agentWorkerPort} (long-post + ADK dialog).`,
+    `Agent worker ready. IPC on 127.0.0.1:${env.agentWorkerPort} (long-post, RAG, ADK dialog).`,
   );
   holdProcessOpen();
 }

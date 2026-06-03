@@ -1,3 +1,5 @@
+import type { RagChunkMetadata } from "./chunk-metadata.js";
+
 /** One indexed text segment with its embedding vector. */
 export interface RagChunk {
   id: string;
@@ -7,6 +9,7 @@ export interface RagChunk {
   chunkIndex: number;
   text: string;
   vector: number[];
+  metadata: RagChunkMetadata;
 }
 
 /** Per-file mtime registry entry (P6-T01). */

@@ -11,6 +11,16 @@ export interface AgentIpcServerOptions {
   onLongPost?: (
     body: Extract<AgentIpcRequest, { type: "longPost" }>,
   ) => Promise<AgentIpcResponse>;
+  onRagReconcileAll?: () => Promise<AgentIpcResponse>;
+  onRagReconcilePaths?: (
+    body: Extract<AgentIpcRequest, { type: "ragReconcilePaths" }>,
+  ) => Promise<AgentIpcResponse>;
+  onRagIndexFile?: (
+    body: Extract<AgentIpcRequest, { type: "ragIndexFile" }>,
+  ) => Promise<AgentIpcResponse>;
+  onRagFindSimilar?: (
+    body: Extract<AgentIpcRequest, { type: "ragFindSimilar" }>,
+  ) => Promise<AgentIpcResponse>;
 }
 
 function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -117,6 +127,34 @@ async function handleRequest(
       return options.onLongPost(request);
     }
     return { ok: false, error: "Long-post handler not configured." };
+  }
+
+  if (request.type === "ragReconcileAll") {
+    if (options.onRagReconcileAll) {
+      return options.onRagReconcileAll();
+    }
+    return { ok: false, error: "RAG reconcile handler not configured." };
+  }
+
+  if (request.type === "ragReconcilePaths") {
+    if (options.onRagReconcilePaths) {
+      return options.onRagReconcilePaths(request);
+    }
+    return { ok: false, error: "RAG reconcile handler not configured." };
+  }
+
+  if (request.type === "ragIndexFile") {
+    if (options.onRagIndexFile) {
+      return options.onRagIndexFile(request);
+    }
+    return { ok: false, error: "RAG index handler not configured." };
+  }
+
+  if (request.type === "ragFindSimilar") {
+    if (options.onRagFindSimilar) {
+      return options.onRagFindSimilar(request);
+    }
+    return { ok: false, error: "RAG search handler not configured." };
   }
 
   return { ok: false, error: `Unknown request type` };

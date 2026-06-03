@@ -1,22 +1,14 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { GitWriteService } from "../../../git/write-service.js";
 import { ntbIndexedDir } from "../../../paths/index.js";
 import {
   formatIndexedMarkdown,
   sanitizeIndexedFileName,
 } from "../../../note-log/indexed-file.js";
-import { createRagHooks } from "../../../rag/hooks.js";
 import type { RuntimeEnv } from "../../env.js";
+import { getWorkerRagService } from "../rag-runtime.js";
 import { analyzeLongPostText } from "./adk-agent.js";
-
-const packageRoot = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "..",
-);
 
 export interface LongPostProcessInput {
   text: string;
@@ -45,12 +37,7 @@ export class LongPostProcessor {
   async process(input: LongPostProcessInput): Promise<LongPostProcessResult> {
     const analysis = await analyzeLongPostText(this.#env, input.text);
     const fileName = sanitizeIndexedFileName(analysis.fileName);
-    const rag = createRagHooks({
-      userRepoDir: this.#env.userRepoDir,
-      ragDir: this.#env.ragDir,
-      env: this.#env,
-      packageRoot,
-    });
+    const rag = getWorkerRagService(this.#env);
 
     const wikilinks = await rag.findSimilarFiles(
       `${analysis.shortDescription}\n${input.text}`,
@@ -78,7 +65,7 @@ export class LongPostProcessor {
       `note-agent: long post ${fileName}`,
     );
 
-    await rag.indexFile(indexedRelativePath);
+    await rag.reconcilePaths([indexedRelativePath]);
 
     return {
       fileName,

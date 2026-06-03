@@ -1,5 +1,6 @@
 import type { RuntimeEnv } from "../runtime/env.js";
 import { keywordSimilarIndexedFiles } from "./keyword-search.js";
+import { logRagReconcileStats } from "./reconcile-log.js";
 import { createRagService, type RagService } from "./service.js";
 
 export interface RagIndexHooks {
@@ -56,20 +57,7 @@ export function createRagHooks(options: RagHooksOptions): RagIndexHooks {
         return;
       }
       const stats = await service.reconcileAll();
-      const deletionStats = await service.reconcileDeletions();
-      const total = {
-        indexed: stats.indexed + deletionStats.indexed,
-        reindexed: stats.reindexed + deletionStats.reindexed,
-        removed: stats.removed + deletionStats.removed,
-        skipped: stats.skipped + deletionStats.skipped,
-        errors: [...stats.errors, ...deletionStats.errors],
-      };
-      console.log(
-        `RAG reconcile: indexed=${total.indexed} reindexed=${total.reindexed} removed=${total.removed} skipped=${total.skipped}`,
-      );
-      for (const err of total.errors) {
-        console.warn(`RAG reconcile error: ${err}`);
-      }
+      logRagReconcileStats(stats);
     },
   };
 }

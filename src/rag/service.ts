@@ -1,17 +1,15 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { join } from "node:path";
 import { findProvider } from "../config/llm-catalog.js";
 import { loadLlmModelsCatalog } from "../config/llm-catalog-loader.js";
-import { GitWriteService } from "../git/write-service.js";
 import type { RuntimeEnv } from "../runtime/env.js";
-import {
-  noteTelegramBotRoot,
-  ntbDailyDir,
-  ntbIndexedDir,
-} from "../paths/index.js";
 import { keywordSimilarIndexedFiles } from "./keyword-search.js";
-import { chunkDailyFile, chunkWholeFile } from "./daily-chunks.js";
+import { buildRagChunks } from "./chunk-metadata.js";
 import { createEmbeddingClient } from "./embeddings.js";
+import {
+  discoverRagIndexablePaths,
+  isRagIndexablePath,
+} from "./indexable-paths.js";
 import { RagPersistence, chunkIdFor, cosineSimilarity } from "./store.js";
 import type {
   RagChunk,
@@ -25,15 +23,7 @@ export interface RagServiceOptions {
   packageRoot: string;
 }
 
-const INDEXABLE_EXTENSIONS = new Set([".md", ".json", ".txt"]);
-
-/** Paths under note_telegram_bot/daily/ or indexed/ only (config/ excluded per Main.md). */
-export function isRagIndexablePath(relativePath: string): boolean {
-  const normalized = relativePath.replace(/\\/g, "/");
-  return (
-    normalized.includes("/daily/") || normalized.includes("/indexed/")
-  );
-}
+export { isRagIndexablePath } from "./indexable-paths.js";
 
 /**
  * RAG index: mtime registry + vector store under host rag/ (P6-T01–T03).
@@ -124,8 +114,8 @@ export class RagService {
 
       try {
         const content = await readFile(absolute, "utf8");
-        const chunks = this.#chunkFile(relPath, content);
-        if (chunks.length === 0) {
+        const built = buildRagChunks(relPath, content);
+        if (built.length === 0) {
           await this.#removeFile(relPath, registry, store, stats);
           continue;
         }
@@ -137,16 +127,18 @@ export class RagService {
           stats.indexed += 1;
         }
 
-        const vectors = await client.embed(chunks);
+        const texts = built.map((c) => c.text);
+        const vectors = await client.embed(texts);
         const chunkIds: string[] = [];
-        for (let i = 0; i < chunks.length; i++) {
+        for (let i = 0; i < built.length; i++) {
           const id = chunkIdFor(relPath, i);
           const chunk: RagChunk = {
             id,
             sourcePath: relPath,
             chunkIndex: i,
-            text: chunks[i],
+            text: built[i].text,
             vector: vectors[i] ?? [],
+            metadata: built[i].metadata,
           };
           store.chunks[id] = chunk;
           chunkIds.push(id);
@@ -220,6 +212,14 @@ export class RagService {
       if (!chunk.sourcePath.includes("/indexed/")) {
         continue;
       }
+      const chunkType = chunk.metadata?.chunkType;
+      if (
+        chunkType &&
+        chunkType !== "indexed_summary" &&
+        chunkType !== "indexed_body"
+      ) {
+        continue;
+      }
       const score = cosineSimilarity(queryVector, chunk.vector);
       if (score <= 0) {
         continue;
@@ -264,64 +264,8 @@ export class RagService {
     void registry;
   }
 
-  #chunkFile(relativePath: string, content: string): string[] {
-    if (relativePath.includes("/daily/")) {
-      return chunkDailyFile(content);
-    }
-    return chunkWholeFile(content);
-  }
-
   async #discoverIndexablePaths(): Promise<string[]> {
-    const ntbPrefix = GitWriteService.relativePath(
-      this.#userRepoDir,
-      noteTelegramBotRoot(this.#userRepoDir),
-    );
-    const roots = [
-      ntbDailyDir(this.#userRepoDir),
-      ntbIndexedDir(this.#userRepoDir),
-    ];
-    const paths: string[] = [];
-    for (const root of roots) {
-      await this.#walkIndexable(root, ntbPrefix, paths);
-    }
-    return paths.sort();
-  }
-
-  async #walkIndexable(
-    dir: string,
-    ntbPrefix: string,
-    out: string[],
-  ): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      const absolute = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await this.#walkIndexable(absolute, ntbPrefix, out);
-        continue;
-      }
-      if (!entry.isFile()) {
-        continue;
-      }
-      if (entry.name === ".gitkeep") {
-        continue;
-      }
-      const ext = entry.name.includes(".")
-        ? entry.name.slice(entry.name.lastIndexOf(".")).toLowerCase()
-        : "";
-      if (!INDEXABLE_EXTENSIONS.has(ext)) {
-        continue;
-      }
-      const rel = relative(this.#userRepoDir, absolute).replace(/\\/g, "/");
-      if (rel.startsWith(`${ntbPrefix}/`)) {
-        out.push(rel);
-      }
-    }
+    return discoverRagIndexablePaths(this.#userRepoDir);
   }
 
   async #keywordSimilar(query: string, limit: number): Promise<string[]> {

@@ -1,6 +1,6 @@
 /**
  * Container entrypoint: supervise gateway + agent worker (restart children on crash).
- * LLM_API_KEY is passed only to the worker process (P2-T08).
+ * LLM_API_KEY is passed only to the worker (P2-T08). RAG embeddings/reconcile run there; gateway triggers via IPC.
  */
 import { spawn } from "node:child_process";
 

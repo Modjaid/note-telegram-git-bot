@@ -28,10 +28,42 @@ Each added repository is a **separate isolated service in a Docker container**. 
 ### RAG (per instance)
 
 - RAG **always stores the modification date** (mtime or equivalent) of each indexed file in `UserRepo/` and uses it to decide what must be re-indexed.
-- After a **local write** by the bot or after **pull** of new/remote changes — reconcile disk with the RAG registry:
-  - file is **new** or **mtime is newer** than the RAG entry → index or re-index (daily files — in chunks by log);
-  - file **deleted** from disk → remove corresponding vectors and the RAG registry entry.
-- Pull from remote and local bot edits use the **same** reconciliation algorithm; manual full re-index via `/agent` is described in CORE.
+- **Indexing scope:** all of `UserRepo/` **except** `note_telegram_bot/config/` (settings, commands, and tasks are read from disk when invoked; not indexed in RAG). Do not index: `.git/`, binary files, and non-text files without meaningful content.
+- Embeddings use the instance RAG model from `LLmModels.json`; one API key per instance (see Q6 in roadmap).
+
+#### Indexing strategies (chunking)
+
+Every indexed file yields **one or more chunks**; the RAG registry stores for each chunk: repo-relative path, chunk index within the file, file mtime, embedding, chunk text, and **metadata** (chunk type, date/id for daily, `CommandId`/`Period` for command outputs, etc.).
+
+| Area | Split strategy |
+|------|----------------|
+| **`note_telegram_bot/daily/`** | One `<NoteLog>` line = **one chunk** (format `HH:mm:<Index> …` — in CORE). In chunk text/metadata: logical day (`DD_MMM_YYYY`), full note id `YYYY:MMM:DD:HH:mm:<Index>`, `<type>` when present. Lines that are not log-format are not indexed. |
+| **`note_telegram_bot/indexed/`** (long post) | **Two levels:** (1) **summary chunk** — `<shortDescription>` + `#` tags (for “similar file” / wikilink search); (2) **body chunks** — full text, split by paragraphs and `##` headings, target size ~500–800 tokens, **10–20% overlap** between adjacent body chunks. |
+| **`note_telegram_bot/indexed/`** (`/<CommandName>` output) | `<Summary>` — separate chunk (or several if long); each `<AILogs>` line — **separate chunk** (like daily); metadata: `CommandId`, `<Period>`. |
+| **Other markdown in `UserRepo/`** | **Structure-aware:** split on `#` / `##` headings first; large sections further by paragraphs up to ~500–800 tokens; 10–20% overlap. Prefix chunk text for embedding with context: file path + section heading. |
+| **Other plain text in `UserRepo/`** | Sliding window of fixed size (~500–800 tokens) with 10–20% overlap. |
+
+On re-index of a file, old chunks for that path are removed from the vector store and registry, then new chunks are written.
+
+#### Search strategies
+
+| Scenario | Behavior |
+|----------|----------|
+| **Wikilinks** (long post, see CORE) | Semantic search over **`indexed/`** chunks; for “similar **file**” prefer **summary chunks** (on equal score — best body chunk of the same file). Daily is **not** included in this search. |
+| **Knowledge-base question** (`/agent`, see CORE) | Semantic search over **all** indexed chunks in `UserRepo/` (except `config/`): top-k relevant chunks → LLM **summarizes** them into an answer. The reply is built from retrieved **pieces**, not whole files. |
+| **Hybrid (recommended for long md)** | Vector similarity + keyword overlap on chunk text; combined score for ranking. |
+| **Fallback** | If the embedding model is unavailable — keyword search over chunk text (no vectors). |
+
+top-k and similarity thresholds are implementation details; if few results match, the agent reports that the knowledge base has little relevant content.
+
+#### Reconcile (index sync with disk)
+
+After a **local write** by the bot or after **pull** of new/remote changes — reconcile disk with the RAG registry:
+
+- file is **new** or **mtime is newer** than the RAG entry → index or re-index using the chunking table above;
+- file **deleted** from disk → remove all chunks for that path and the RAG registry entry.
+
+Pull from remote and local bot edits use the **same** algorithm. Manual full re-index — via `/agent` (CORE).
 
 ## CORE
 
@@ -60,11 +92,11 @@ Each added repository is a **separate isolated service in a Docker container**. 
 - File layout:
 
 ```text
-UserRepo/                          # user repository with all their files
+UserRepo/                          # user repository; fully indexed in RAG except note_telegram_bot/config/
   note_telegram_bot/               # bot folder
     daily/                         # raw daily entries (DD_MMM_YYYY.md, e.g. 02_Jun_2026.md)
     indexed/                       # long posts, /<CommandName> outputs, wikilinked notes
-    config/                        # agent settings, tasks, commands
+    config/                        # agent settings, tasks, commands (not indexed in RAG)
 ```
 
 - **Git branch** (e.g. `node_telegram_bot`): create and checkout if missing after clone/pull; all bot writes commit and push to this branch.
@@ -85,7 +117,7 @@ UserRepo/                          # user repository with all their files
 - Opens a fresh agent dialog; message: “the agent is listening”.
 - Each agent message ends with: `/exit`.
 - User may ask to:
-  - **Re-index the knowledge base.** Agent updates everything from git `UserRepo` and indexes files that were **not** indexed or **were updated** (compared to the DB). Daily files `DD_MMM_YYYY.md` are indexed in chunks by log (log format — below).
+  - **Re-index the knowledge base.** Agent reconciles **all of** `UserRepo/` (except `note_telegram_bot/config/`) with the RAG registry and indexes files that were **not** indexed or **were updated** (chunking strategies — RAG section above).
   - **Add a personal command** `/<commandName>` — agent dialog to create it.
     - Command file: `UserRepo/note_telegram_bot/config/commands/CommandName.md`, created by the agent.
     - Agent explains: commands are a way to analyze daily entries and organize goals; after creation the command can be invoked and scheduled.
@@ -97,6 +129,8 @@ UserRepo/                          # user repository with all their files
       - `<Prompt>` — nature of note analysis, detailed description for search and links; full prompt from dialog. User may request a table in `<Summary>` and help with columns.
   - **Create `<task>` in Schedule** — if the user wants one-off or recurring reminders.
     - Agent explains: only user analysis commands run on schedule; the agent is an analyzer, not a direct assistant, but periodic analysis supports decisions. Suggests `/commands` and adding a new command (see “Add a personal command”).
+  - **Ask a knowledge-base question.** Any free-form user question not covered above (re-index, command, Schedule).
+    - Agent searches **by meaning** in RAG across all of `UserRepo/` (except `note_telegram_bot/config/`), collects relevant chunks, summarizes them, and replies.
 
 #### `/commands`
 
@@ -145,7 +179,7 @@ UserRepo/                          # user repository with all their files
       - inserts the full message;
       - adds `<shortDescription>` — short summary (may exceed 60 words for large text);
       - adds semantic `#` tags;
-      - via RAG finds similar files and adds `[[FILENAME]]` links;
+      - via RAG finds similar files **in `indexed/`** and adds `[[FILENAME]]` links;
       - indexes the file in the vector DB;
       - writes `<shortDescription>` in daily `<Note>`.
     - **`forwarded from @telegramNickName`** — forwarded message; `<Note>` may include original time, `<NoteLog>` header — bot receive time.

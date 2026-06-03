@@ -29,6 +29,8 @@ export interface NoteCaptureServiceOptions {
   userRepoDir: string;
   gitWriter: GitWriteService;
   longPostClient?: LongPostClient;
+  /** Called after a successful git write (P6-T05 RAG reconcile). */
+  onAfterWrite?: (relativePaths: string[]) => Promise<void>;
 }
 
 interface InboundRaw {
@@ -46,6 +48,7 @@ export class NoteCaptureService {
   readonly #userRepoDir: string;
   readonly #gitWriter: GitWriteService;
   readonly #longPostClient?: LongPostClient;
+  readonly #onAfterWrite?: (relativePaths: string[]) => Promise<void>;
   readonly #writer: DailyNoteWriter;
   #timezone: string | null = null;
   #awaitingTimezone = false;
@@ -55,6 +58,7 @@ export class NoteCaptureService {
     this.#userRepoDir = options.userRepoDir;
     this.#gitWriter = options.gitWriter;
     this.#longPostClient = options.longPostClient;
+    this.#onAfterWrite = options.onAfterWrite;
     this.#writer = new DailyNoteWriter(options.userRepoDir, options.gitWriter);
   }
 
@@ -133,6 +137,8 @@ export class NoteCaptureService {
       "note-agent: save user timezone",
     );
 
+    await this.#notifyAfterWrite([relPath]);
+
     this.#timezone = timezone;
     this.#awaitingTimezone = false;
 
@@ -183,6 +189,8 @@ export class NoteCaptureService {
       note,
     });
 
+    await this.#notifyAfterWrite([write.dailyRelativePath]);
+
     return {
       feedbackText: formatCaptureFeedback(write),
       write,
@@ -228,6 +236,11 @@ export class NoteCaptureService {
       note: longResult.shortDescription,
     });
 
+    await this.#notifyAfterWrite([
+      longResult.indexedRelativePath,
+      write.dailyRelativePath,
+    ]);
+
     return {
       feedbackText: formatLongPostFeedback(
         longResult.fileName,
@@ -238,6 +251,19 @@ export class NoteCaptureService {
       ),
       write,
     };
+  }
+
+  async #notifyAfterWrite(relativePaths: string[]): Promise<void> {
+    if (!this.#onAfterWrite) {
+      return;
+    }
+    try {
+      await this.#onAfterWrite(relativePaths);
+    } catch (error) {
+      console.warn(
+        `RAG reconcile after write failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }
 

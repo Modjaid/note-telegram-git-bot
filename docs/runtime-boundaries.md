@@ -20,7 +20,7 @@ Aligned with [DEVELOPMENT_ROADMAP.md](../DEVELOPMENT_ROADMAP.md) Q4 and [PRODUCT
 
 | Runs on | Responsibility | Does not |
 |---------|----------------|----------|
-| Inside the user’s Docker container (process 1) | Telegram **long polling** (Q5), `MessengerHandler`, default `<NoteLog>` capture, immediate Git commit/push after `UserRepo/` writes, RAG reconcile **hooks** | Block on long LLM / ADK calls |
+| Inside the user’s Docker container (process 1) | Telegram **long polling** (Q5), `MessengerHandler`, default `<NoteLog>` capture, immediate Git commit/push after `UserRepo/` writes, RAG reconcile **hooks** (full `UserRepo/` except `config/` — see PRODUCT_SPEC RAG section) | Block on long LLM / ADK calls |
 
 **Entry:** `dist/runtime/gateway/main.js` (started by container entrypoint — P2-T01).
 
@@ -32,7 +32,7 @@ Aligned with [DEVELOPMENT_ROADMAP.md](../DEVELOPMENT_ROADMAP.md) Q4 and [PRODUCT
 
 | Runs on | Responsibility | Does not |
 |---------|----------------|----------|
-| Same container (process 2) | Google ADK agent, indexed/long-post files, command authoring, command analysis LLM passes | Telegram `getUpdates` loop |
+| Same container (process 2) | Google ADK agent, indexed/long-post files, RAG chunk indexing & KB search (IPC), command authoring, command analysis LLM passes | Telegram `getUpdates` loop |
 
 **Entry:** `dist/runtime/agent-worker/main.js` (started with gateway by entrypoint).
 

@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { GitWriteService } from "../../../git/write-service.js";
 import { ntbIndexedDir } from "../../../paths/index.js";
 import {
@@ -9,6 +10,13 @@ import {
 import { createRagHooks } from "../../../rag/hooks.js";
 import type { RuntimeEnv } from "../../env.js";
 import { analyzeLongPostText } from "./adk-agent.js";
+
+const packageRoot = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+);
 
 export interface LongPostProcessInput {
   text: string;
@@ -40,6 +48,8 @@ export class LongPostProcessor {
     const rag = createRagHooks({
       userRepoDir: this.#env.userRepoDir,
       ragDir: this.#env.ragDir,
+      env: this.#env,
+      packageRoot,
     });
 
     const wikilinks = await rag.findSimilarFiles(

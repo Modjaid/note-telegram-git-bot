@@ -1,83 +1,80 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { ntbIndexedDir } from "../paths/index.js";
+import type { RuntimeEnv } from "../runtime/env.js";
+import { keywordSimilarIndexedFiles } from "./keyword-search.js";
+import { createRagService, type RagService } from "./service.js";
 
 export interface RagIndexHooks {
   findSimilarFiles(query: string, limit?: number): Promise<string[]>;
   indexFile(relativePath: string): Promise<void>;
+  reconcileAll?(): Promise<void>;
 }
 
 export interface RagHooksOptions {
   userRepoDir: string;
   ragDir: string;
+  /** When set, enables vector store and reconcile (Phase 6). */
+  env?: RuntimeEnv;
+  packageRoot?: string;
+}
+
+let sharedService: RagService | null = null;
+
+function getService(options: RagHooksOptions): RagService | null {
+  if (!options.env || !options.packageRoot) {
+    return null;
+  }
+  if (!sharedService) {
+    sharedService = createRagService({
+      env: options.env,
+      packageRoot: options.packageRoot,
+    });
+  }
+  return sharedService;
 }
 
 /**
- * Phase 5 stub / Phase 6 extension point for vector similarity and indexing.
- * P5-T04 / P5-T07 call these hooks; full reconcile arrives in Phase 6.
+ * RAG hooks for similarity search and indexing (P5-T04 / P6-T01+).
  */
 export function createRagHooks(options: RagHooksOptions): RagIndexHooks {
-  const indexedDir = ntbIndexedDir(options.userRepoDir);
+  const service = getService(options);
 
   return {
     async findSimilarFiles(query: string, limit = 5): Promise<string[]> {
-      void options.ragDir;
-      const keywords = tokenize(query);
-      if (keywords.length === 0) {
-        return [];
+      if (service) {
+        return service.findSimilarFiles(query, limit);
       }
-
-      let entries: string[];
-      try {
-        entries = await readdir(indexedDir);
-      } catch {
-        return [];
-      }
-
-      const scored: Array<{ name: string; score: number }> = [];
-      for (const entry of entries) {
-        if (!entry.endsWith(".md")) {
-          continue;
-        }
-        try {
-          const body = await readFile(join(indexedDir, entry), "utf8");
-          const score = overlapScore(keywords, tokenize(body));
-          if (score > 0) {
-            scored.push({ name: entry, score });
-          }
-        } catch {
-          // skip unreadable files
-        }
-      }
-
-      return scored
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
-        .map((item) => item.name.replace(/\.md$/i, "").toUpperCase());
+      return keywordSimilarIndexedFiles(options.userRepoDir, query, limit);
     },
 
     async indexFile(relativePath: string): Promise<void> {
-      // Phase 6: embed and persist vectors under ragDir with mtime registry.
-      void relativePath;
-      void options.ragDir;
+      if (service) {
+        await service.indexFile(relativePath);
+      }
+    },
+
+    async reconcileAll(): Promise<void> {
+      if (!service) {
+        return;
+      }
+      const stats = await service.reconcileAll();
+      const deletionStats = await service.reconcileDeletions();
+      const total = {
+        indexed: stats.indexed + deletionStats.indexed,
+        reindexed: stats.reindexed + deletionStats.reindexed,
+        removed: stats.removed + deletionStats.removed,
+        skipped: stats.skipped + deletionStats.skipped,
+        errors: [...stats.errors, ...deletionStats.errors],
+      };
+      console.log(
+        `RAG reconcile: indexed=${total.indexed} reindexed=${total.reindexed} removed=${total.removed} skipped=${total.skipped}`,
+      );
+      for (const err of total.errors) {
+        console.warn(`RAG reconcile error: ${err}`);
+      }
     },
   };
 }
 
-function tokenize(text: string): string[] {
-  return text
-    .toLowerCase()
-    .split(/[^a-z0-9]+/u)
-    .filter((token) => token.length >= 4);
-}
-
-function overlapScore(queryTokens: string[], docTokens: string[]): number {
-  const docSet = new Set(docTokens);
-  let score = 0;
-  for (const token of queryTokens) {
-    if (docSet.has(token)) {
-      score += 1;
-    }
-  }
-  return score;
+/** Reset shared service (tests). */
+export function resetRagHooksForTests(): void {
+  sharedService = null;
 }

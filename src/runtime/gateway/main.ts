@@ -17,6 +17,8 @@ import {
   ntbCommandsDir,
 } from "../../paths/index.js";
 import { NoteCaptureService } from "../../note-log/capture.js";
+import { createRagHooks } from "../../rag/hooks.js";
+import { createRagService } from "../../rag/service.js";
 import { IpcLongPostClient } from "./long-post-client.js";
 import { runContainerBootstrap } from "../bootstrap.js";
 import { loadRuntimeEnv } from "../env.js";
@@ -65,6 +67,23 @@ export async function runGateway(): Promise<void> {
     console.log(bootstrap.scaffoldCommitMessage);
   }
 
+  const rag = createRagHooks({
+    userRepoDir: env.userRepoDir,
+    ragDir: env.ragDir,
+    env,
+    packageRoot,
+  });
+  const ragService = createRagService({ env, packageRoot });
+
+  console.log("RAG: reconciling index after git sync...");
+  try {
+    await rag.reconcileAll?.();
+  } catch (error) {
+    console.warn(
+      `RAG reconcile on startup failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
   const gitWriter = new GitWriteService({
     repoDir: env.userRepoDir,
     branch: env.gitBranch,
@@ -96,6 +115,9 @@ export async function runGateway(): Promise<void> {
     userRepoDir: env.userRepoDir,
     gitWriter,
     longPostClient: workerReachable ? new IpcLongPostClient(ipc) : undefined,
+    onAfterWrite: async (paths) => {
+      await ragService.reconcilePaths(paths);
+    },
   });
   await noteCapture.ensureRegionLoaded();
 

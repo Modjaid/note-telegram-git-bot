@@ -10,7 +10,7 @@ Telegram-based personal note bot with a Docker-isolated runtime, Git-backed note
 2. **Isolated runtime** — One Docker container per user instance runs **two processes**: a **gateway** (Telegram + handler + fast note/Git path) and an **ADK agent worker** (slash dialogs, long posts, command authoring). Gateway talks to the worker over in-container IPC.
 3. **Git sync** — Inside the container only: clone/sync into host-mounted `UserRepo/`, scaffold `note_telegram_bot/`, commit + push on each write and on gateway shutdown. The host CLI never runs `git`.
 4. **Default behavior** — Most Telegram messages are appended to daily note files; slash commands open timed agent dialogs (3-minute window) without writing to daily notes until the dialog ends.
-5. **RAG** — Per-instance vector index on the host (`rag/`); reconciled with `UserRepo/` after local writes and after git pull.
+5. **RAG** — Per-instance vector index on the host (`rag/`); indexes **all of `UserRepo/`** except `note_telegram_bot/config/`; chunking and search strategies in [PRODUCT_SPEC.md](PRODUCT_SPEC.md) (RAG section). Reconcile after git pull and local writes.
 
 ## Planned architecture
 
@@ -74,7 +74,7 @@ flowchart TB
 | **Agent worker (ADK)** | Slash dialogs, `/agent`, long posts, indexed files, user commands/tasks, KB tools |
 | **Daily Note Writer** | Append lines to `daily/DD/MM/YYYY` (day boundary 06:00 local) |
 | **Git sync / push** | Pull on start; commit + push on every `UserRepo/` change; push on gateway SIGTERM (container only) |
-| **RAG** | Host-mounted index; reconcile mtime with `UserRepo/` after writes and pull |
+| **RAG** | Host-mounted chunk index + mtime registry; full `UserRepo/` except `config/`; daily = log-line chunks; other paths = multi-chunk (see spec); hybrid search for retrieval |
 
 ### Handler modes
 
@@ -94,8 +94,10 @@ UserRepo/
   note_telegram_bot/
     daily/          # raw daily lines, e.g. 02_Jun_2026.md (DD_MMM_YYYY)
     indexed/        # long posts, /<CommandName> outputs, wikilinked notes
-    config/         # timezone, commands/, tasks/, …
+    config/         # timezone, commands/, tasks/, … (not in RAG index)
 ```
+
+All other paths under `UserRepo/` (including user files outside `note_telegram_bot/`) are indexed in RAG per [PRODUCT_SPEC.md](PRODUCT_SPEC.md); only `note_telegram_bot/config/` is excluded.
 
 Git branch (e.g. `node_telegram_bot`) is **created if missing** after clone/pull.
 
@@ -103,7 +105,7 @@ Git branch (e.g. `node_telegram_bot`) is **created if missing** after clone/pull
 
 | Command | Purpose |
 |---------|---------|
-| `/agent` | Dialog with agent (“agent is listening”) — index KB, add custom commands/tasks |
+| `/agent` | Dialog — re-index KB, KB Q&A (RAG top-k + summarize), add custom commands/tasks |
 | `/commands` | List default and user-defined commands |
 | `/Schedule` | List all `<task>` entries and cron schedules for user commands |
 
